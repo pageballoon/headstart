@@ -1,8 +1,8 @@
-- core.cms:
-    filename: cms.htm
-    description: CMS pages and content
-    requires:
-- rainlab.blog:
-    filename: blog.htm
-    description: Blog plugin
-    requires: Rainlab.Blog
+core.cms:
+  filename: cms.htm
+  description: CMS pages and content
+  requires:
+rainlab.blog:
+  filename: blog.htm
+  description: Blog plugin
+  requires: Rainlab.Blog
