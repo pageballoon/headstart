@@ -1,0 +1,25 @@
+title = "cms"
+==
+<?php
+use Cms\Classes\Theme;
+use Cms\Classes\Content;
+
+function resolveCmsContent($root, $args) {
+    if (! $theme = Theme::getActiveTheme()) {
+        throw new \Exception(Lang::get('cms::lang.theme.active.not_found'));
+    }
+
+    return Content::loadCached($theme, $args['name']);
+}
+?>
+==
+extend type Query {
+    cmsContent(name: String!): CmsContent!
+}
+
+type CmsContent {
+    fileName: String!,
+    content: String,
+    markup: String,
+    parsedMarkup: String
+}

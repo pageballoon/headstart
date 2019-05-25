@@ -1,0 +1,20 @@
+title = "Blog"
+==
+extend type Query {
+    blogPost(id: Int!): BlogPost @find(model: "Rainlab\\Blog\\Models\\Post"),
+    blogPosts: [BlogPost] @all(model: "Rainlab\\Blog\\Models\\Post")
+}
+
+type BlogPost {
+    title: String,
+    content: String,
+    categories: [BlogCategory] @hasMany
+}
+
+type BlogCategory {
+    id: Int!,
+    description: String,
+    slug: String,
+    name: String,
+    posts: [BlogPost] @hasMany
+}
