@@ -1,4 +1,4 @@
-title = "cms"
+title = "CMS"
 ==
 <?php
 use Cms\Classes\Theme;
@@ -13,13 +13,30 @@ function resolveCmsContent($root, $args) {
 }
 ?>
 ==
+# Content
+
 extend type Query {
     cmsContent(name: String!): CmsContent!
 }
 
 type CmsContent {
-    fileName: String!,
-    content: String,
-    markup: String,
+    fileName: String!
+    content: String
+    markup: String
     parsedMarkup: String
+}
+
+# CMS-wide types
+
+# Backend\Models\User
+type BackendUser {
+    id: ID!
+}
+
+# System\Models\File
+type SystemFile {
+    id: ID
+    path: String
+    title: String
+    description: String
 }

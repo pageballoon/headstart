@@ -1,0 +1,155 @@
+title = "Forums"
+==
+<?php
+use RainLab\Forum\Models\Topic as TopicModel;
+use RainLab\Forum\Models\Channel as ChannelModel;
+use RainLab\Forum\Models\Member as MemberModel;
+use RainLab\Forum\Models\Post as PostModel;
+use RainLab\Forum\Models\TopicFollow as TopicFollow;
+use Auth;
+
+function getChannel($slug) {
+    return ChannelModel::where('slug', $slug)->first();
+}
+
+function getMember() {
+    $user = Auth::getUser();
+    return MemberModel::getFromUser($user);
+}
+
+function resolveForumTopic($root, $args, $context, $resolveInfo) {
+    $topic = TopicModel::whereSlug($args['slug'])->first();
+
+    if ($topic) {
+        $topic->increaseViewCount();
+    }
+
+    return $topic;
+}
+
+function resolveForumChannel($root, $args, $context, $resolveInfo) {
+    return $this->getChannel($args['slug']);
+}
+
+function resolveCreateForumTopic($root, $args, $context, $resolveInfo) {
+    $member = $this->getMember();
+    $channel = $this->getChannel($args['topic']['channel']);
+
+    if ($channel->is_moderated && !$member->is_moderator) {
+        throw new ApplicationException('You cannot create a topic in this channel.');
+    }
+
+    if (TopicModel::checkThrottle($member)) {
+        throw new ApplicationException('Please wait a few minutes before posting another topic.');
+    }
+
+    if ($member->is_banned) {
+        throw new ApplicationException('You cannot create new topics: Your account is banned.');
+    }
+
+    $topic = TopicModel::createInChannel($channel, $member, $args['topic']);
+
+    Notifier::topicCreated($topic);
+
+    return $topic;
+}
+
+function resolveCreateForumPost($root, $args) {
+    $member = $this->getMember();
+    $topic = TopicModel::whereSlug($args['post']['topic'])->first();
+    $post = PostModel::createInTopic($topic, $member, ['content' => $args['post']['content']]);
+    $postUrl = '';
+    TopicFollow::sendNotifications($topic, $post, $postUrl);
+    return $post;
+}
+
+function resolveForumToggleTopicFollow($root, $args) {
+    $member = $this->getMember();
+    $topic = TopicModel::whereSlug($args['topic'])->first();
+    return TopicFollow::toggle($topic, $member);
+}
+?>
+==
+extend type Query {
+    forumChannel(slug: String!): ForumChannel
+    forumTopic(slug: String!): ForumTopic
+}
+
+extend type Mutation {
+    createForumTopic(topic: CreateForumTopicInput): ForumTopic
+    createForumPost(post: CreateForumPostInput): ForumPost
+    "Toggles a topic as being followed by a member, returns true if the member was following, or false if they were not."
+    forumToggleTopicFollow(topic: String!): Boolean
+}
+
+input CreateForumTopicInput {
+    "The channel slug"
+    channel: String!
+    "The topic's subject"
+    subject: String!
+    "The topic's content"
+    content: String!
+}
+
+input CreateForumPostInput {
+    topic: String!
+    content: String!
+}
+
+type ForumChannel {
+    id: ID
+    title: String
+    slug: String
+    description: String
+    count_topics: Int
+    count_posts: Int
+    topics: [ForumTopic] @hasMany(type: "paginator", scopes: ["ordered"])
+    first_topic: ForumTopic @hasOne
+    parent: ForumChannel @hasOne
+}
+
+type ForumMember {
+    id: ID
+    username: String
+    slug: String
+    count_posts: Int
+    count_topics: Int
+    last_active_at: String
+    created_at: String
+    updated_at: String
+    user: User @belongsTo
+    posts: [ForumPost] @hasMany(type: "paginator")
+}
+
+type ForumPost {
+    id: ID
+    subject: String
+    content: String
+    content_html: String
+    created_at: String
+    updated_at: String
+    topic: ForumTopic @belongsTo
+    member: ForumMember @belongsTo
+}
+
+type ForumTopic {
+    id: ID
+    subject: String
+    slug: String
+    last_post_at: String
+    is_private: Boolean
+    is_sticky: Boolean
+    is_locked: Boolean
+    count_posts: Int
+    count_views: Int
+    created_at: String
+    updated_at: String
+    channel: ForumChannel @belongsTo
+    start_member: ForumMember @belongsTo
+    last_post: ForumPost @belongsTo
+    last_post_member: ForumMember @belongsTo
+    posts: [ForumPost] @hasMany(type: "paginator")
+    first_post: ForumPost @hasOne
+    followers: [ForumMember] @belongsToMany
+    user_is_following: Boolean @method(name: "userIsFollowing")
+}

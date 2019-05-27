@@ -1,8 +1,20 @@
 core.cms:
   filename: cms.htm
-  description: CMS pages and content
+  description: CMS content and core types
   requires:
+rainlab.user:
+  filename: user.htm
+  description: User plugin
+  requires: Rainlab.User
 rainlab.blog:
   filename: blog.htm
   description: Blog plugin
   requires: Rainlab.Blog
+rainlab.pages:
+  filename: pages.htm
+  description: Static pages plugin
+  requires: Rainlab.Pages
+rainlab.forum:
+  filename: forum.htm
+  description: Forum plugin
+  requires: Rainlab.Forum

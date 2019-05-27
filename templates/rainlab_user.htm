@@ -1,0 +1,25 @@
+title = "User"
+==
+extend type Query {
+    user(id: ID!): User @find(model: "Rainlab\\User\\Models\\User"),
+    users: [User] @all(model: "Rainlab\\User\\Models\\User")
+}
+
+type User {
+    id: ID
+    name: String
+    email: String
+    is_activated: Boolean
+    last_login: String
+    groups: [UserGroup] @belongsToMany
+    avatar: SystemFile
+}
+
+type UserGroup {
+    id: ID
+    name: String
+    code: String
+    description: String
+    users: [User] @belongsToMany
+    users_count: Int
+}

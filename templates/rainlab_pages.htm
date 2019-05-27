@@ -1,0 +1,60 @@
+title = "Pages"
+==
+<?php
+use Lang;
+use Cms\Classes\Theme;
+use Rainlab\Pages\Classes\Menu;
+use RainLab\Pages\Classes\Router;
+
+function resolveStaticMenu($root, $args) {
+    if (! $theme = Theme::getActiveTheme()) {
+        throw new \Exception(Lang::get('cms::lang.theme.active.not_found'));
+    }
+
+    if (! $menu = Menu::loadCached($theme, $args['code'])) {
+        throw new \Exception(Lang::get('rainlab.pages::lang.object.not_found'));
+    }
+
+    return $menu;
+}
+
+function resolveStaticPage($root, $args) {
+    $router = new Router(Theme::getActiveTheme());
+    return $router->findByUrl($args['url']);
+}
+
+?>
+==
+type Query {
+    staticPage(url: String!): StaticPage
+    staticMenu(code: String!): StaticMenu
+}
+
+type StaticPage {
+    pageObject: String
+}
+
+type StaticMenuItem {
+    title: String
+    type: String
+    url: String
+    code: String
+    cmsPage: String
+    exists: Boolean
+}
+
+type StaticMenuReference {
+    url: String
+    title: String
+    items: [StaticMenuReference]
+}
+
+type StaticMenu {
+    fileName: String!
+    content: String
+    markup: String
+    name: String
+    code: String
+    items: [StaticMenuItem]
+    menuItems: [StaticMenuReference] @method(name: "generateReferences")
+}
