@@ -1,3 +1,7 @@
+core.scalars:
+  filename: scalars.htm
+  description: Useful scalars like Date and Upload
+  requires:
 core.cms:
   filename: cms.htm
   description: CMS content and core types
