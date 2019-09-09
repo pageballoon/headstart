@@ -1,0 +1,169 @@
+title = "JWTAuth"
+==
+<?php
+
+use Nuwave\Lighthouse\Exceptions\AuthenticationException;
+use RLuders\JWTAuth\Models\Settings as RLudersJWTAuthSettings;
+use RainLab\User\Models\Settings as RainLabUserSettings;
+use RLuders\JWTAuth\Exceptions\JsonValidationException;
+use RLuders\JWTAuth\Http\Requests\LoginRequest;
+use RLuders\JWTAuth\Http\Controllers\LoginController;
+use RLuders\JWTAuth\Http\Requests\TokenRequest;
+use RLuders\JWTAuth\Http\Controllers\RefreshTokenController;
+use RLuders\JWTAuth\Http\Requests\ForgotPasswordRequest;
+use RLuders\JWTAuth\Http\Controllers\ForgotPasswordController;
+use RLuders\JWTAuth\Http\Requests\ResetPasswordRequest;
+use RLuders\JWTAuth\Http\Controllers\ResetPasswordController;
+use RLuders\JWTAuth\Http\Requests\RegisterRequest;
+use RLuders\JWTAuth\Http\Controllers\RegisterController;
+
+protected $auth = null;
+
+function __construct() {
+    $this->auth = app(RLuders\JWTAuth\Classes\JWTAuth::class);
+}
+
+function validate($request) {
+    try {
+        $request->validate();
+        return $request;
+    } catch (JsonValidationException $e) {
+        throw new AuthenticationException($e->getMessage());
+    }
+}
+
+function process($response) {
+    if (isset($response->original['error'])) {
+        throw new AuthenticationException($response->original['error']);
+    }
+
+    return (object) $response->original;
+}
+
+function sendToken($token, $host = '') {
+    Cookie::queue(
+        'auth_token',
+        $token,
+        RLudersJWTAuthSettings::get('ttl', 43200), // 43200 = 60 * 24 * 30 = 1 month
+        '/',
+        $host,
+        true,
+        true // httpOnly
+    );
+}
+
+function resolveMe($root, $args) {
+    return $this->auth->user();
+}
+
+function resolveLogin($root, $args, $context) {
+    $controller = new LoginController();
+    $request = new LoginRequest($args['data']);
+    $response = $this->process($controller($this->auth, $this->validate($request)));
+
+    $this->sendToken($response->token, $context->request->getHost());
+
+    return (object) ['user' => $response->user];
+}
+
+function resolveRefreshToken($root, $args, $context) {
+    $controller = new RefreshTokenController();
+    $request = new TokenRequest(['token' => Cookie::get('auth_token')]);
+    $response = $this->process($controller($this->auth, $this->validate($request)));
+
+    $this->sendToken($response->token, $context->request->getHost());
+
+    return true;
+}
+
+function resolveLogout() {
+    if ($this->auth->check()) {
+        throw new AuthenticationException('not_authenticated');
+    }
+    $this->auth->setToken(Cookie::get('auth_token'));
+    $this->auth->invalidate();
+    Cookie::queue(Cookie::forget('auth_token'));
+    return true;
+}
+
+function resolveForgotPassword($root, $args) {
+    $controller = new ForgotPasswordController();
+    $request = new ForgotPasswordRequest($args['data']);
+    $this->process($controller($this->validate($request)));
+    return true;
+}
+
+function resolveResetForgottenPassword($root, $args) {
+    $controller = new ResetPasswordController();
+    $request = new ResetPasswordRequest($args['data']);
+    $this->process($controller($this->validate($request)));
+    return true;
+}
+
+function resolveRegister($root, $args) {
+    $controller = new RegisterController();
+    if (!array_key_exists('password_confirmation', $args['data'])) {
+        $args['data']['password_confirmation'] = $args['data']['password'];
+    }
+    $request = new RegisterRequest($args['data']);
+    $this->process($controller($this->auth, $this->validate($request)));
+
+    $mode = 'manual';
+    switch (RainLabUserSettings::get('activate_mode')) {
+        case RainLabUserSettings::ACTIVATE_USER:
+            $mode = 'email';
+        case RainLabUserSettings::ACTIVATE_AUTO:
+            $mode = 'auto';
+    }
+
+    return (object) [
+        'activation_mode' => $mode,
+        'user' => $this->auth->user()
+    ];
+}
+
+?>
+==
+input LoginInput {
+    login: String!
+    password: String!
+}
+
+type AuthPayload {
+    user: User!
+}
+
+input ForgotPasswordInput {
+    email: String!
+}
+
+input NewPasswordWithCodeInput {
+    reset_password_code: String!
+    password: String!
+}
+
+input RegisterInput {
+    username: String
+    email: String!
+    password: String!
+    password_confirmation: String
+}
+
+type RegisterPayload {
+    activation_mode: String!
+    user: User!
+}
+
+extend type Query @middleware(checks: ["Headstart\\Middleware\\AddCookieAuthHeader", "jwt.auth"]) {
+    me: User
+}
+
+extend type Mutation {
+    login(data: LoginInput): AuthPayload!
+    refreshToken: Boolean!
+    logout: Boolean!
+    forgotPassword(data: ForgotPasswordInput!): Boolean!
+    resetForgottenPassword(data: NewPasswordWithCodeInput): Boolean!
+    register(data: RegisterInput): RegisterPayload!
+}
+

@@ -22,3 +22,10 @@ rainlab.forum:
   filename: forum.htm
   description: Forum plugin
   requires: Rainlab.Forum
+rluders.jwtauth:
+  filename: auth.htm
+  description: JWT-based authentication
+  requires: RLuders.JWTAuth
+  includes:
+    - rluders_jwtauth/middleware/Authenticate.php
+    - rluders_jwtauth/boot/auth.php
