@@ -1,4 +1,4 @@
-title = "JWTAuth"
+title = "Auth"
 ==
 <?php
 
@@ -52,7 +52,7 @@ function sendToken($token, $host = '') {
     );
 }
 
-function resolveMe($root, $args) {
+function resolveAuth($root, $args) {
     return $this->auth->user();
 }
 
@@ -154,8 +154,8 @@ type RegisterPayload {
     user: User!
 }
 
-extend type Query @middleware(checks: ["Headstart\\Middleware\\AddCookieAuthHeader", "jwt.auth"]) {
-    me: User
+extend type Query @middleware(checks: ["auth:api"]) {
+    auth: User
 }
 
 extend type Mutation {
