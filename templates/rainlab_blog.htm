@@ -15,7 +15,7 @@ type BlogPost {
     published: Boolean
     published_at: String
     categories: [BlogCategory] @belongsToMany
-    user: BackendUser @belongsTo
+    # user: BackendUser @belongsTo
     featured_images: SystemFile @hasMany
     created_at: String
     updated_at: String
